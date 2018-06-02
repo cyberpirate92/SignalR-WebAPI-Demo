@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Stock price graph</title>
+
+    <!-- Jquery -->
+    <script src="https://code.jquery.com/jquery-3.3.1.min.js" integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8="
+        crossorigin="anonymous"></script>
+
+    <!-- ChartistJs -->
+    <link rel="stylesheet" href="//cdn.jsdelivr.net/chartist.js/latest/chartist.min.css">
+    <script src="//cdn.jsdelivr.net/chartist.js/latest/chartist.min.js"></script>
+
+    <!-- Bootstrap -->
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.1/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-WskhaSGFgHYWDcbwN70/dfYBj47jz9qbsMId/iRN3ewGhXQFZCSftd1LZCfmhktB"
+        crossorigin="anonymous">
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.1/js/bootstrap.min.js" integrity="sha384-smHYKdLADwkXOn1EmN1qk/HfnUcbVRZyYmZ4qpPea6sjB/pTJ0euyQp0Mk8ck+5T"
+        crossorigin="anonymous"></script>
+
+    <!-- SignalR -->
+    <script src="https://cdn.jsdelivr.net/npm/@aspnet/signalr/dist/browser/signalr.min.js"></script>
+
+</head>
+
+<body>
+    <div class="container-fluid">
+        <ul class="nav nav-tabs" id="tabList">
+            <li class="nav-item">
+                <a class="nav-link active" data-toggle="tab" id="graph-tab" href="#graphTab">Graph</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" data-toggle="tab" id="update-tab" href="#updateTab">Update</a>
+            </li>
+        </ul>
+        <div class="tab-content" id="myTabContent">
+            <div class="tab-pane fade show active" id="graphTab" role="tabpanel">
+                <div class="row">
+                    <div class="col" id="chartContainer">
+                        <!-- chart goes here -->
+                    </div>
+                </div>
+            </div>
+            <div class="tab-pane fade" id="updateTab" role="tabpanel">
+                <div class="row">
+                    <div class="col">
+                        <div class="input-group mb-3">
+                            <input type="text" class="form-control" placeholder="Updated Price" id="updatedPriceInput">
+                            <div class="input-group-append">
+                                <button class="btn btn-outline-primary" type="button" id="updateBtn">Button</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+
+<script type="text/javascript">
+    // initializing the chart object
+    const chart = new Chartist.Line("#chartContainer",
+        {
+            labels: [],
+            series: [[]]
+        },
+        {
+            low: 0,
+            showArea: true
+        });
+
+    const connection = new signalR.HubConnectionBuilder().withUrl("/data").configureLogging(signalR.LogLevel.Debug).build();
+    connection.on("ReceiveData", (updatedPrice) => {
+        if (isNaN(updatedPrice))
+            return;
+        chart.data.series[0].push(updatedPrice);
+        chart.update();
+    });
+    connection.start();
+
+    $("#updateBtn").on("click", () => {
+        sendUpdatedPrice();    
+    });
+
+    $("#updatedPriceInput").on("keyup", (event) => {
+        if (event.keyCode !== 13) return;
+        sendUpdatedPrice();
+    });
+
+    $('a[data-toggle="tab"]').on('shown.bs.tab', (e) => chart.update());
+
+    function sendUpdatedPrice() {
+        const updatedPrice = parseFloat($("#updatedPriceInput").val());
+        console.log(updatedPrice);
+        if (isNaN(updatedPrice)) return;
+        // TODO: Write ajax code here
+        $.ajax({
+            contentType: "application/json",
+            url: "/api/price",
+            data: JSON.stringify(updatedPrice),
+            method: "post",
+            success: () => {
+                console.log("Update successful");
+                $("#updatedPriceInput").val("");
+            },
+            error: (error) => { console.error(error); }
+        });
+    };
+</script>
+
+</html>
